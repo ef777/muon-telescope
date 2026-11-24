@@ -1,0 +1,157 @@
+{
+  "device": {
+    "manufacturer": "Google",
+    "model": "sdk_gphone64_x86_64",
+    "device": "emu64xa",
+    "android_sdk": 35,
+    "release": "15"
+  },
+  "cameras": [
+    {
+      "id": "1",
+      "physical_ids": [],
+      "lens_facing": "BACK",
+      "hardware_level": "LEVEL_3",
+      "physical_size_mm": [
+        3.200000047683716,
+        2.4000000953674316
+      ],
+      "pixel_array": [
+        1856,
+        1392
+      ],
+      "active_array": [
+        0,
+        0,
+        1856,
+        1392
+      ],
+      "pixel_pitch_um": [
+        1.7241379246115685,
+        1.7241380410268903
+      ],
+      "timestamp_source": "REALTIME",
+      "iso_range": [
+        100,
+        1600
+      ],
+      "max_analog_iso": 1600,
+      "exposure_range_ns": [
+        1000,
+        300000000
+      ],
+      "max_frame_duration_ns": 300000000,
+      "white_level": 4000,
+      "black_level_pattern": [
+        64,
+        64,
+        64,
+        64
+      ],
+      "cfa": 0,
+      "hot_pixel_modes": [
+        0,
+        1,
+        2
+      ],
+      "hot_pixel_modes_legend": "0=OFF 1=FAST 2=HIGH_QUALITY",
+      "noise_reduction_modes": [
+        0,
+        1,
+        2,
+        4
+      ],
+      "noise_reduction_legend": "0=OFF 1=FAST 2=HIGH_QUALITY 3=MINIMAL 4=ZERO_SHUTTER_LAG",
+      "edge_modes": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "shading_modes": [
+        0,
+        1,
+        2
+      ],
+      "hot_pixel_map_modes": [
+        false,
+        true
+      ],
+      "ae_modes": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "af_modes": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "capabilities": [
+        0,
+        1,
+        2,
+        5,
+        6,
+        4,
+        7,
+        3,
+        18,
+        19,
+        20
+      ],
+      "capabilities_legend": "1=MANUAL_SENSOR 2=MANUAL_POST_PROCESSING 3=RAW 4=PRIVATE_REPROC 5=READ_SENSOR_SETTINGS 6=BURST 7=YUV_REPROC 8=DEPTH 9=HIGH_SPEED 11=LOGICAL_MULTI_CAMERA 14=ULTRA_HIGH_RES_SENSOR",
+      "raw_supported": true,
+      "manual_sensor": true,
+      "output_formats": {
+        "RAW_SENSOR": [
+          {
+            "size": "1856x1392",
+            "min_frame_duration_ns": 33331760,
+            "stall_duration_ns": 33331760
+          }
+        ],
+        "YUV_420_888": [
+          {
+            "size": "1856x1392",
+            "min_frame_duration_ns": 33331760,
+            "stall_duration_ns": 0
+          },
+          {
+            "size": "1280x720",
+            "min_frame_duration_ns": 33331760,
+            "stall_duration_ns": 0
+          },
+          {
+            "size": "1024x768",
+            "min_frame_duration_ns": 33331760,
+            "stall_duration_ns": 0
+          },
+          {
+            "size": "640x480",
+            "min_frame_duration_ns": 33331760,
+            "stall_duration_ns": 0
+          },
+          {
+            "size": "320x240",
+            "min_frame_duration_ns": 33331760,
+            "stall_duration_ns": 0
+          },
+          {
+            "size": "176x144",
+            "min_frame_duration_ns": 33331760,
+            "stall_duration_ns": 0
+          },
+          {
+            "size": "160x120",
+            "min_frame_duration_ns": 33331760,
+            "stall_duration_ns": 0
+          }
+        ]
+      }
+    }
+  ]
+}

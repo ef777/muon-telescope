@@ -24,6 +24,10 @@ class MainActivity : ComponentActivity() {
         val json = try { CapabilityProbe.run(this).toString(2) } catch (e: Exception) { "{\"error\":\"$e\"}" }
         val file = File(getExternalFilesDir(null), "capabilities_${android.os.Build.MODEL.replace(' ', '_')}.json")
         file.writeText(json)
+        // Test hook: `am start -n .../.MainActivity --ez sim true --es server ...` starts the capture service in simulation mode
+        if (intent.getBooleanExtra("sim", false)) {
+            startForegroundService(Intent(this, CaptureService::class.java).apply { intent.extras?.let { putExtras(it) } })
+        }
         setContent {
             MaterialTheme {
                 Column(Modifier.fillMaxSize().statusBarsPadding().padding(12.dp)) {
