@@ -36,6 +36,9 @@ Out of scope on purpose: muon-based navigation (phone frame times are tens–hun
 
 A bright streak on one phone is a *muon candidate*, not a muon. Claiming a detection requires coincidence **and** an accidental-background estimate (time-shift lag scan).
 
+### Paper
+A technical report (design, Monte Carlo expectation, validation on synthetic data, limitations): [docs/paper/paper.md](docs/paper/paper.md). It states clearly that no real muon has been detected yet.
+
 ### Repository layout
 ```
 android/    Kotlin + Camera2: CapabilityProbe, CaptureService, FrameTrigger (pure Kotlin), TimeSync, Uploader
@@ -108,6 +111,9 @@ Bilerek kapsam dışı: müonla konum bulma (telefon kare süreleri onlarca–y�
 | Gerçek fizik sonuçları | ❌ henüz yok — `docs/RESULTS.md` sentetiktir ve bunu belirtir |
 
 Tek telefondaki parlak çizgi *müon adayıdır*, müon değildir. "Algılandı" demek için çakışma **ve** rastlantısal arka plan tahmini (zaman kaydırmalı gecikme taraması) şarttır.
+
+### Makale
+Teknik rapor (tasarım, Monte Carlo beklentisi, sentetik veride doğrulama, sınırlamalar): [docs/paper/paper_tr.md](docs/paper/paper_tr.md). Henüz gerçek müon algılanmadığını açıkça belirtir.
 
 ### Depo yapısı
 ```
