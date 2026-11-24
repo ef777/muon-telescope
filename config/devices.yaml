@@ -1,0 +1,14 @@
+# Faz 0 sonrası doldurulacak: her cihaz için kamera id, format ve gerekçe.
+devices:
+  - id: redmi_note13
+    camera_id: null
+    format: null      # RAW_SENSOR | YUV_420_888
+    rationale: ""
+  - id: galaxy_a37
+    camera_id: null
+    format: null
+    rationale: ""
+  - id: galaxy_a12
+    camera_id: null
+    format: null
+    rationale: ""
