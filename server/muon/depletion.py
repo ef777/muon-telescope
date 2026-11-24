@@ -32,7 +32,7 @@ def fit_H(lengths_px, l0: float = 0.0, lmin: float = 3.0, bounds=(1.0, 500.0)) -
     return dict(H=H, err=float(1 / np.sqrt(d2)) if d2 > 0 else np.nan, n=len(L))
 
 
-def H_from_angles(lengths_px, zeniths_rad, **_) -> dict:
+def H_from_angles(lengths_px, zeniths_rad, **kwargs) -> dict:
     """Calibration with coincidence-known zenith angles: linear fit L = H tan(theta) + l0.
 
     The free intercept l0 absorbs the pixel footprint of the cluster. Triple coincidences only accept small

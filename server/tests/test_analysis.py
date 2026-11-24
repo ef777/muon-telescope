@@ -1,7 +1,7 @@
 import numpy as np
 import synth
-
-from muon import alignment, classify, coincidence as co, depletion, timesync, tracks
+from muon import alignment, classify, depletion, timesync, tracks
+from muon import coincidence as co
 from muon.events import from_records
 
 

@@ -1,6 +1,5 @@
 import numpy as np
 import synth
-
 from muon import coincidence as co
 from muon.events import from_records
 

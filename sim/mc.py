@@ -85,6 +85,22 @@ def expected_rates(sensors: list[Sensor], duty: float = 0.9, n: int = 2_000_000,
     }
 
 
+def acceptance_table(sensors: list[Sensor], n: int = 2_000_000, seed: int = 3, n_planes: int = 3, bins: int = 9) -> list[dict]:
+    """Geometric acceptance per zenith bin: fraction of top-plane muons that also cross the other planes."""
+    rng = np.random.default_rng(seed)
+    _, _, theta, _, _, _ = sample_muons(n, sensors[0], rng)
+    rng = np.random.default_rng(seed)
+    hits = geometric_hits(n, sensors[:n_planes], rng)
+    edges = np.linspace(0, np.pi / 2, bins + 1)
+    ok = hits.all(axis=1)
+    out = []
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        m = (theta >= lo) & (theta < hi)
+        out.append(dict(theta_lo_deg=float(np.degrees(lo)), theta_hi_deg=float(np.degrees(hi)), n=int(m.sum()),
+                        acceptance=float(ok[m].mean()) if m.sum() else 0.0))
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Expected muon rates for a 3-sensor phone stack")
     ap.add_argument("--gap-mm", type=float, default=9.0)
@@ -92,7 +108,12 @@ def main() -> None:
     ap.add_argument("--duty", type=float, default=0.9)
     ap.add_argument("-n", type=int, default=2_000_000)
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--acceptance-table", action="store_true", help="print acceptance vs zenith bin")
     a = ap.parse_args()
+    if a.acceptance_table:
+        for r in acceptance_table(default_stack(a.gap_mm, a.eff), a.n, a.seed):
+            print(f"{r['theta_lo_deg']:5.1f}-{r['theta_hi_deg']:5.1f} deg  n={r['n']:7d}  acceptance={r['acceptance']:.4f}")
+        return
     r = expected_rates(default_stack(a.gap_mm, a.eff), a.duty, a.n, a.seed)
     for k, v in r.items():
         print(f"{k:28s} {v:.4g}")

@@ -21,8 +21,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import mc  # noqa: E402
 import synth  # noqa: E402
-
-from muon import alignment, classify, coincidence as co, depletion, tracks  # noqa: E402
+from muon import alignment, classify, depletion, tracks  # noqa: E402
+from muon import coincidence as co
 from muon.events import from_records, load_jsonl  # noqa: E402
 
 

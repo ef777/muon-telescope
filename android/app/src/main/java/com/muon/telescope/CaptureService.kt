@@ -4,6 +4,7 @@ import android.app.*
 import android.content.*
 import android.graphics.ImageFormat
 import android.hardware.camera2.*
+import android.os.SystemClock
 import android.media.ImageReader
 import android.os.*
 import com.muon.telescope.core.DarkCalibration
@@ -41,6 +42,7 @@ class CaptureService : Service() {
     private var exposureNs = 150_000_000L; private var frameNs = 200_000_000L; private var iso = 0
     @Volatile private var paused = false
     private var overflowFrames = 0L
+    private var sim = false; private var simEventProb = 0.05
     private val pending = HashMap<Long, Long>()   // sensor ts -> exposure from CaptureResult
 
     override fun onBind(i: Intent?): IBinder? = null
@@ -57,15 +59,17 @@ class CaptureService : Service() {
         val camId = e.getStringExtra("camera_id") ?: "0"
         width = e.getIntExtra("width", 1280); height = e.getIntExtra("height", 960)
         fps = e.getIntExtra("fps", 5); iso = e.getIntExtra("iso", 0)
+        sim = e.getBooleanExtra("sim", false); calSeconds = e.getIntExtra("cal_seconds", 60)
+        simEventProb = e.getDoubleExtra("sim_event_prob", 0.05)
         frameNs = 1_000_000_000L / fps; exposureNs = (frameNs * 0.75).toLong()
         outDir = File(getExternalFilesDir(null), "runs/$runId").also { File(it, "crops").mkdirs() }
         timeSync = TimeSync(server); uploader = Uploader(outDir, server)
         thread = HandlerThread("cap").also { it.start() }; handler = Handler(thread.looper)
         handler.post {
             timeSync.sync()
-            open(camId)
+            if (sim) startSimulation() else open(camId)
         }
-        handler.postDelayed(object : Runnable { override fun run() { housekeeping(); handler.postDelayed(this, 30_000) } }, 30_000)
+        handler.postDelayed(object : Runnable { override fun run() { housekeeping(); handler.postDelayed(this, 10_000) } }, 10_000)
         return START_STICKY
     }
 
@@ -121,6 +125,31 @@ class CaptureService : Service() {
         val plane = img.planes[0]; val buf = plane.buffer; val rs = plane.rowStride
         val frame = IntArray(width * height)
         for (y in 0 until height) for (x in 0 until width) frame[y * width + x] = buf.get(y * rs + x).toInt() and 0xFF
+        processFrame(frame, img.timestamp)
+    }
+
+    /** Simulation mode: synthetic dark frames (Gaussian noise + hot pixels) with injected tracks/dots, no camera. */
+    private fun startSimulation() {
+        cal = DarkCalibration(width, height)
+        val rng = java.util.Random(deviceId.hashCode().toLong())
+        val hot = IntArray(5) { rng.nextInt(width * height) }
+        val tick = object : Runnable {
+            override fun run() {
+                val f = IntArray(width * height) { (64 + rng.nextGaussian() * 3).toInt() }
+                hot.forEach { f[it] += 300 }
+                if (trigger != null && rng.nextDouble() < simEventProb) {      // injected after calibration
+                    val x0 = 10 + rng.nextInt(width - 30); val y0 = 10 + rng.nextInt(height - 30)
+                    val len = 1 + rng.nextInt(12); val dy = rng.nextInt(3) - 1
+                    for (i in 0 until len) f[(y0 + dy * i / 4) * width + x0 + i] += 150
+                }
+                processFrame(f, SystemClock.elapsedRealtimeNanos())
+                handler.postDelayed(this, frameNs / 1_000_000)
+            }
+        }
+        handler.post(tick)
+    }
+
+    private fun processFrame(frame: IntArray, ts: Long) {
         val c = cal!!
         if (trigger == null) {
             c.add(frame); calFrames++
@@ -128,7 +157,6 @@ class CaptureService : Service() {
             return
         }
         val idx = frameIdx++
-        val ts = img.timestamp
         when (val r = trigger!!.process(frame)) {
             is FrameTrigger.Result.Overflow -> overflowFrames++   // light leak / noise: nothing stored
             is FrameTrigger.Result.Clusters -> r.clusters.forEachIndexed { ci, cl ->
@@ -161,6 +189,7 @@ class CaptureService : Service() {
         (registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0) / 10.0
 
     private fun housekeeping() {
+        android.util.Log.i("MuonCap", "frames=${frameIdx} cal=$calFrames/$calTarget trigger=${trigger != null} overflow=$overflowFrames sync=${timeSync.synced} offset_ms=${timeSync.offsetNs / 1e6} temp=${batteryTemp()}")
         val t = batteryTemp()
         paused = if (paused) t > 40.0 else t > 42.0          // hysteresis: pause >42 C, resume <=40 C
         Thread { uploader.flush() }.start()
