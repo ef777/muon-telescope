@@ -8,7 +8,8 @@ from pathlib import Path
 import numpy as np
 from fastapi import Body, FastAPI
 from fastapi.staticfiles import StaticFiles
-from muon import classify, coincidence, ingest, tracks
+from fastapi import Request
+from muon import classify, coincidence, ingest, stability, timesync, tracks
 
 DB_PATH = os.environ.get("MUON_DB", "data/muon.db")
 ROOT = Path(__file__).resolve().parents[1]
@@ -64,6 +65,56 @@ def coincidences(run_id: str | None = None, pitch_um: float = 1.0, z_gap_mm: flo
         cen, d, res = tracks.fit_line(pts)
         out.append(dict(utc_ns=int(a.utc_ns[i]), points=pts.tolist(), zenith=tracks.zenith(d),
                         residual_mm=float(res.max())))
+    return out
+
+
+_taps: dict[str, list[int]] = {}
+_gnss: dict[str, list[tuple[int, int]]] = {}
+
+
+@app.post("/tap")
+def post_tap(payload: dict = Body(...)):
+    """Accelerometer impulse timestamps (UTC ns, already mapped through the device's TimeSync) for the tap test."""
+    _taps.setdefault(payload["device_id"], []).extend(int(t) for t in payload["times_utc_ns"])
+    return {"devices": {k: len(v) for k, v in _taps.items()}}
+
+
+@app.get("/tapsync")
+def tapsync(ref: str, other: str):
+    """Measured clock offset (other - ref) from common taps; compare with the NTP result to validate < 5 ms."""
+    if ref not in _taps or other not in _taps:
+        return {"error": "need taps from both devices"}
+    return timesync.tap_offset(np.array(_taps[ref]), np.array(_taps[other]))
+
+
+@app.post("/gnss")
+def post_gnss(payload: dict = Body(...)):
+    """GNSS fixes: pairs (elapsedRealtimeNanos, utc_ns)."""
+    _gnss.setdefault(payload["device_id"], []).extend((int(e), int(u)) for e, u in payload["pairs"])
+    return timesync.elapsed_to_utc_offset(_gnss[payload["device_id"]])
+
+
+@app.put("/crop/{run_id}/{device}/{name}")
+async def put_crop(run_id: str, device: str, name: str, request: Request):
+    d = Path(DB_PATH).parent / "crops" / run_id / device
+    d.mkdir(parents=True, exist_ok=True)
+    (d / Path(name).name).write_bytes(await request.body())
+    return {"ok": True}
+
+
+def _num(x: float) -> float | None:
+    """JSON has no NaN."""
+    return None if x != x else float(x)
+
+
+@app.get("/stability")
+def stability_report(run_id: str | None = None):
+    ev = ingest.load_events(con, run_id)
+    out = {}
+    for d in sorted(set(ev.device.tolist())):
+        h = stability.hourly_rates(ev, d)
+        out[d] = dict(rate_per_hour=h["rate"].tolist(), stable=h["stable"], max_dev=_num(h["max_dev"]),
+                      duty=_num(stability.duty_cycle(ev, d)))
     return out
 
 

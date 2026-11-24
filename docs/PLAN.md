@@ -26,3 +26,12 @@ Eksik: sentetik olay akışı üreteci (Faz 4 testleri için), kabul açısı d�
 | 7 Fizik sonuçları | `scripts/make_results.py` hazır; **gerçek sonuç yok**, RESULTS.md sentetik. |
 
 Bilinen sınırlar: hizalama yalnızca orta sensörü çözer (üst/alt referans); üçlü sayısı arttıkça tüm sensörler için genişletilebilir.
+
+## Kod tamamlama (2. tur)
+- Faz 0: `scripts/select_device_config.py` probe JSON'larından `config/devices.yaml` üretir (emülatör raporu üzerinde testli).
+- Faz 1: RAW16 çekim yolu (`format=RAW_SENSOR`), `server/muon/stability.py` + `/stability` (saatlik oran ±%20, çalışma oranı).
+- Faz 2: Android dokunma tespiti (`ImpulseDetector`, JVM testli), GNSS çiftleri, `/tap`, `/tapsync`, `/gnss`, kırpma yükleme `/crop`.
+- Faz 5: `server/muon/cnn.py` (torch, sentetik veride >%90; gerçek etiket gelince kullanılacak).
+- Faz 6: `alignment.align_sensors` (genel N sensör, >=2 sabit).
+- Faz 7: `scripts/flux_compare.py` (çatı/bodrum oranı, Poisson hatalı).
+Testler: Python 23, Android JVM 8. **Hâlâ cihazda doğrulanmayanlar:** RAW16, gerçek kamera, 8 saat, <5 ms dokunma testi.

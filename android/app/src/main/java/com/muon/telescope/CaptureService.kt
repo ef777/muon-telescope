@@ -42,6 +42,8 @@ class CaptureService : Service() {
     private var exposureNs = 150_000_000L; private var frameNs = 200_000_000L; private var iso = 0
     @Volatile private var paused = false
     private var overflowFrames = 0L
+    private var raw = false
+    private val pendingTaps = ArrayList<Long>(); private val gnssPairs = ArrayList<Pair<Long, Long>>()
     private var sim = false; private var simEventProb = 0.05
     private val pending = HashMap<Long, Long>()   // sensor ts -> exposure from CaptureResult
 
@@ -59,12 +61,13 @@ class CaptureService : Service() {
         val camId = e.getStringExtra("camera_id") ?: "0"
         width = e.getIntExtra("width", 1280); height = e.getIntExtra("height", 960)
         fps = e.getIntExtra("fps", 5); iso = e.getIntExtra("iso", 0)
-        sim = e.getBooleanExtra("sim", false); calSeconds = e.getIntExtra("cal_seconds", 60)
+        raw = e.getStringExtra("format") == "RAW_SENSOR"; sim = e.getBooleanExtra("sim", false); calSeconds = e.getIntExtra("cal_seconds", 60)
         simEventProb = e.getDoubleExtra("sim_event_prob", 0.05)
         frameNs = 1_000_000_000L / fps; exposureNs = (frameNs * 0.75).toLong()
         outDir = File(getExternalFilesDir(null), "runs/$runId").also { File(it, "crops").mkdirs() }
-        timeSync = TimeSync(server); uploader = Uploader(outDir, server)
+        timeSync = TimeSync(server); uploader = Uploader(outDir, server, runId, deviceId)
         thread = HandlerThread("cap").also { it.start() }; handler = Handler(thread.looper)
+        startTapAndGnss()
         handler.post {
             timeSync.sync()
             if (sim) startSimulation() else open(camId)
@@ -73,13 +76,44 @@ class CaptureService : Service() {
         return START_STICKY
     }
 
+    /** Phase 2 validation paths: accelerometer taps (CLAUDE.md 4.3 #4) and GNSS elapsed->UTC pairs (#2). */
+    private fun startTapAndGnss() {
+        val sm = getSystemService(SENSOR_SERVICE) as android.hardware.SensorManager
+        val det = com.muon.telescope.core.ImpulseDetector()
+        sm.registerListener(object : android.hardware.SensorEventListener {
+            override fun onSensorChanged(ev: android.hardware.SensorEvent) {
+                if (det.onSample(ev.timestamp, ev.values[0].toDouble(), ev.values[1].toDouble(), ev.values[2].toDouble()))
+                    synchronized(pendingTaps) { pendingTaps += ev.timestamp }
+            }
+            override fun onAccuracyChanged(s: android.hardware.Sensor?, a: Int) {}
+        }, sm.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER), android.hardware.SensorManager.SENSOR_DELAY_FASTEST, handler)
+        try {
+            val lm = getSystemService(LOCATION_SERVICE) as android.location.LocationManager
+            lm.requestLocationUpdates(android.location.LocationManager.GPS_PROVIDER, 5000L, 0f, android.location.LocationListener { l ->
+                synchronized(gnssPairs) { gnssPairs += l.elapsedRealtimeNanos to l.time * 1_000_000L }
+            }, handler.looper)
+        } catch (_: SecurityException) { } catch (_: IllegalArgumentException) { }
+    }
+
+    private fun flushSyncData() {
+        val taps = synchronized(pendingTaps) { pendingTaps.toList().also { pendingTaps.clear() } }
+        if (taps.isNotEmpty() && timeSync.synced) {
+            val ok = uploader.postJson("/tap", JSONObject().put("device_id", deviceId)
+                .put("times_utc_ns", org.json.JSONArray(taps.map { timeSync.toUtcNs(it) })).toString())
+            if (!ok) synchronized(pendingTaps) { pendingTaps.addAll(taps) }
+        }
+        val g = synchronized(gnssPairs) { gnssPairs.toList().also { gnssPairs.clear() } }
+        if (g.isNotEmpty()) uploader.postJson("/gnss", JSONObject().put("device_id", deviceId)
+            .put("pairs", org.json.JSONArray(g.map { org.json.JSONArray(listOf(it.first, it.second)) })).toString())
+    }
+
     private fun open(camId: String) {
         val mgr = getSystemService(CAMERA_SERVICE) as CameraManager
         val ch = mgr.getCameraCharacteristics(camId)
         if (iso == 0) iso = ch.get(CameraCharacteristics.SENSOR_MAX_ANALOG_SENSITIVITY)
             ?: ch.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)!!.upper
         cal = DarkCalibration(width, height)
-        reader = ImageReader.newInstance(width, height, ImageFormat.YUV_420_888, 4).apply {
+        reader = ImageReader.newInstance(width, height, if (raw) ImageFormat.RAW_SENSOR else ImageFormat.YUV_420_888, 4).apply {
             setOnImageAvailableListener({ r -> r.acquireLatestImage()?.use { onImage(it) } }, handler)
         }
         mgr.openCamera(camId, object : CameraDevice.StateCallback() {
@@ -122,9 +156,10 @@ class CaptureService : Service() {
 
     private fun onImage(img: android.media.Image) {
         if (paused) return
-        val plane = img.planes[0]; val buf = plane.buffer; val rs = plane.rowStride
+        val plane = img.planes[0]; val buf = plane.buffer.order(ByteOrder.nativeOrder()); val rs = plane.rowStride
         val frame = IntArray(width * height)
-        for (y in 0 until height) for (x in 0 until width) frame[y * width + x] = buf.get(y * rs + x).toInt() and 0xFF
+        if (raw) for (y in 0 until height) for (x in 0 until width) frame[y * width + x] = buf.getShort(y * rs + x * 2).toInt() and 0xFFFF
+        else for (y in 0 until height) for (x in 0 until width) frame[y * width + x] = buf.get(y * rs + x).toInt() and 0xFF
         processFrame(frame, img.timestamp)
     }
 
@@ -192,7 +227,7 @@ class CaptureService : Service() {
         android.util.Log.i("MuonCap", "frames=${frameIdx} cal=$calFrames/$calTarget trigger=${trigger != null} overflow=$overflowFrames sync=${timeSync.synced} offset_ms=${timeSync.offsetNs / 1e6} temp=${batteryTemp()}")
         val t = batteryTemp()
         paused = if (paused) t > 40.0 else t > 42.0          // hysteresis: pause >42 C, resume <=40 C
-        Thread { uploader.flush() }.start()
+        Thread { uploader.flush(); uploader.flushCrops(); flushSyncData() }.start()
     }
 
     override fun onDestroy() {

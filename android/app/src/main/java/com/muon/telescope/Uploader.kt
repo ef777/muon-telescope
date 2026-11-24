@@ -8,7 +8,8 @@ import java.net.URL
  * Offline-first: events are appended to JSONL spool files first; a batch is deleted only after the server
  * acknowledged it. The server ingest is idempotent (device_id + frame_idx + cluster_idx), so retries are safe.
  */
-class Uploader(private val dir: File, private val serverUrl: String, private val batchSize: Int = 200) {
+class Uploader(private val dir: File, private val serverUrl: String, private val runId: String = "run",
+               private val deviceId: String = "dev", private val batchSize: Int = 200) {
     private val spool = File(dir, "spool.jsonl").also { dir.mkdirs() }
 
     @Synchronized fun enqueue(jsonLine: String) { spool.appendText(jsonLine + "\n") }
@@ -27,8 +28,24 @@ class Uploader(private val dir: File, private val serverUrl: String, private val
         return sent
     }
 
-    private fun post(body: String): Boolean = try {
-        val c = URL("$serverUrl/ingest").openConnection() as HttpURLConnection
+    /** PUT every crop not yet acknowledged; acknowledged files are renamed *.sent. Safe to call repeatedly. */
+    fun flushCrops(max: Int = 200): Int {
+        var n = 0
+        File(dir, "crops").listFiles { f -> f.name.endsWith(".npy") }?.sortedBy { it.name }?.take(max)?.forEach { f ->
+            try {
+                val c = URL("$serverUrl/crop/$runId/$deviceId/${f.name}").openConnection() as HttpURLConnection
+                c.requestMethod = "PUT"; c.doOutput = true; c.connectTimeout = 3000; c.readTimeout = 10000
+                c.outputStream.use { it.write(f.readBytes()) }
+                if (c.responseCode in 200..299 && f.renameTo(File(f.path + ".sent"))) n++
+            } catch (_: Exception) { }
+        }
+        return n
+    }
+
+    fun postJson(path: String, body: String): Boolean = post(body, path)
+
+    private fun post(body: String, path: String = "/ingest"): Boolean = try {
+        val c = URL("$serverUrl$path").openConnection() as HttpURLConnection
         c.requestMethod = "POST"; c.doOutput = true; c.connectTimeout = 3000; c.readTimeout = 10000
         c.setRequestProperty("Content-Type", "application/json")
         c.outputStream.use { it.write(body.toByteArray()) }
