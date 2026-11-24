@@ -6,9 +6,8 @@ import time
 from pathlib import Path
 
 import numpy as np
-from fastapi import Body, FastAPI
+from fastapi import Body, FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi import Request
 from muon import classify, coincidence, ingest, stability, timesync, tracks
 
 DB_PATH = os.environ.get("MUON_DB", "data/muon.db")

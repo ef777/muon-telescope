@@ -8,8 +8,8 @@ import numpy as np
 import pytest
 import synth
 from fastapi.testclient import TestClient
-
-from muon import alignment, cnn, coincidence as co, stability, tracks
+from muon import alignment, cnn, stability, tracks
+from muon import coincidence as co
 from muon.events import from_records
 
 ROOT = Path(__file__).resolve().parents[2]

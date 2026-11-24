@@ -17,7 +17,8 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "server")]
 
-from muon import classify, coincidence as co  # noqa: E402
+from muon import classify  # noqa: E402
+from muon import coincidence as co
 from muon.events import load_jsonl  # noqa: E402
 
 
