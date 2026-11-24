@@ -37,3 +37,10 @@ def muon_fraction_in_coincident(pred: np.ndarray, coincident_idx: np.ndarray) ->
     if len(coincident_idx) == 0:
         return float("nan")
     return float(np.mean(pred[coincident_idx] == "track"))
+
+
+def track_triples(tri: np.ndarray, a: Events, b: Events, c: Events, rules: dict | None = None) -> np.ndarray:
+    """Keep triples whose three clusters are all track-like. Removes real doubles + a noise dot in the third sensor."""
+    pa, pb, pc = classify(a, rules), classify(b, rules), classify(c, rules)
+    keep = [(pa[i] == "track") and (pb[j] == "track") and (pc[k] == "track") for i, j, k in tri]
+    return tri[np.array(keep, bool)] if len(tri) else tri

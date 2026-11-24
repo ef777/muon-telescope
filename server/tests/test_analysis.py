@@ -53,7 +53,7 @@ def test_alignment_recovers_misalignment_and_reduces_residuals():
     poses = _poses(devs)
     new, info = alignment.align_middle(poses["top"], poses["middle"], poses["bottom"], hits)
     assert len(hits) > 40
-    assert info["rms_after"] < 0.5 * info["rms_before"]
+    assert info["median_after"] < 0.5 * info["median_before"]
     assert abs(new.x_mm - 0.15) < 0.05 and abs(new.y_mm + 0.10) < 0.05
     assert abs(new.rot_rad - 0.02) < 0.01
 

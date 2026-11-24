@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><title>Müon Teleskobu</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
+<style>
+ body{font-family:system-ui;margin:0;background:#111;color:#ddd}
+ header{padding:10px 16px;background:#1b1b1b} .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px}
+ .card{background:#1b1b1b;padding:8px;border-radius:6px} #three{height:360px} table{font-size:12px;width:100%}
+</style></head><body>
+<header><b>Müon çakışma teleskobu</b> — <span id="sum">yükleniyor…</span> <small>(analiz adayı ≠ doğrulanmış müon; çakışma + rastlantısal arka plan şart)</small></header>
+<div class="grid">
+ <div class="card"><div id="rates"></div></div>
+ <div class="card"><div id="lag"></div></div>
+ <div class="card"><div id="zen"></div></div>
+ <div class="card"><div id="three"></div></div>
+ <div class="card" style="grid-column:span 2"><div id="gallery"></div></div>
+</div>
+<script type="module">
+import * as THREE from "three";
+const j = u => fetch(u).then(r => r.json());
+const st = await j("/stats"), co = await j("/coincidences"), ev = await j("/events?limit=40");
+document.getElementById("sum").textContent = `${st.n_events} olay, ${co.length} üçlü çakışma`;
+const names = Object.keys(st.devices);
+Plotly.newPlot("rates", [{x: names, y: names.map(n => st.devices[n].rate_per_h), type: "bar", name: "olay/saat"},
+  {x: names, y: names.map(n => st.devices[n].n_track / Math.max(st.devices[n].n, 1)), type: "bar", name: "iz oranı", yaxis: "y2"}],
+  {title: "Cihaz başına olay oranı", template: "plotly_dark", paper_bgcolor: "#1b1b1b", plot_bgcolor: "#1b1b1b",
+   font: {color: "#ddd"}, yaxis2: {overlaying: "y", side: "right"}});
+const L = st.lag_scan_top_middle;
+if (L) Plotly.newPlot("lag", [{x: L.lags_s, y: L.counts, mode: "lines+markers"}],
+  {title: `Gecikme taraması top–middle (σ=${L.significance.toFixed(1)})`, xaxis: {title: "gecikme [s]"}, yaxis: {title: "çakışma"},
+   paper_bgcolor: "#1b1b1b", plot_bgcolor: "#1b1b1b", font: {color: "#ddd"}});
+Plotly.newPlot("zen", [{x: co.map(c => c.zenith * 180 / Math.PI), type: "histogram", nbinsx: 12}],
+  {title: "Zenit açısı [°] (MC kabul beklentisiyle karşılaştır: docs/figures)", paper_bgcolor: "#1b1b1b", plot_bgcolor: "#1b1b1b", font: {color: "#ddd"}});
+const el = document.getElementById("three"), W = el.clientWidth, H = 360;
+const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(45, W / H, 0.1, 500);
+cam.position.set(25, 15, 30); cam.lookAt(0, -9, 0);
+const rnd = new THREE.WebGLRenderer({antialias: true}); rnd.setSize(W, H); el.appendChild(rnd.domElement);
+[[7.6, 5.7, 0], [6.4, 4.8, -9], [6.4, 4.8, -18]].forEach(([w, h, z]) => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({color: 0x335577, side: THREE.DoubleSide, transparent: true, opacity: .5}));
+  m.rotation.x = -Math.PI / 2; m.position.y = z; scene.add(m);
+});
+co.forEach(c => { const g = new THREE.BufferGeometry().setFromPoints(c.points.map(p => new THREE.Vector3(p[0], p[2], p[1])));
+  scene.add(new THREE.Line(g, new THREE.LineBasicMaterial({color: 0xffaa00}))); });
+rnd.render(scene, cam);
+document.getElementById("gallery").innerHTML = "<table><tr><th>cihaz<th>sınıf<th>uzunluk[px]<th>genişlik[px]<th>n_pix<th>ADU</tr>" +
+  ev.map(e => `<tr><td>${e.device}<td>${e.cls}<td>${e.length_px.toFixed(1)}<td>${e.width_px.toFixed(1)}<td>${e.n_pix}<td>${e.sum_adu.toFixed(0)}`).join("") + "</table>";
+</script></body></html>

@@ -37,6 +37,14 @@ class MainActivity : ComponentActivity() {
                             startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"; putExtra(Intent.EXTRA_TEXT, json) }, "Paylaş"))
                         }) { Text("Paylaş") }
+                        Button(onClick = {
+                            requestPermissions(arrayOf(android.Manifest.permission.CAMERA, android.Manifest.permission.POST_NOTIFICATIONS), 1)
+                            // Phase 1 defaults; camera/size/ISO must be set from the Phase 0 reports (config/devices.yaml)
+                            startForegroundService(Intent(this@MainActivity, CaptureService::class.java)
+                                .putExtra("device_id", android.os.Build.MODEL.replace(' ', '_').lowercase())
+                                .putExtra("run_id", "run_" + System.currentTimeMillis()))
+                        }) { Text("Çekimi başlat") }
+                        Button(onClick = { startService(Intent(this@MainActivity, CaptureService::class.java).setAction("stop")) }) { Text("Durdur") }
                     }
                     Text("Kaydedildi: ${file.absolutePath}", fontSize = 10.sp)
                     SelectionContainer {

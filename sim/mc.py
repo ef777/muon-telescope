@@ -46,6 +46,21 @@ def geometric_hits(n: int, sensors: list[Sensor], rng: np.random.Generator) -> n
     return hits
 
 
+def accepted_zenith(sensors: list[Sensor], n: int = 2_000_000, seed: int = 2, n_planes: int = 3):
+    """Zenith angles of MC muons crossing the first n_planes sensors (geometric acceptance only).
+
+    Sampled with the cos^2 intensity; reweight with cos(theta)**(k-2) to test intensity ~ cos^k.
+    """
+    rng = np.random.default_rng(seed)
+    x, y, theta, phi, sin_t, cos_t = sample_muons(n, sensors[0], rng)
+    hits = np.ones(n, bool)
+    for s in sensors[:n_planes]:
+        d = sensors[0].z_mm - s.z_mm
+        hits &= (np.abs(x + d * np.tan(theta) * np.cos(phi)) <= s.w_mm / 2) & (
+            np.abs(y + d * np.tan(theta) * np.sin(phi)) <= s.h_mm / 2)
+    return theta[hits]
+
+
 def expected_rates(sensors: list[Sensor], duty: float = 0.9, n: int = 2_000_000, seed: int = 1) -> dict:
     rng = np.random.default_rng(seed)
     hits = geometric_hits(n, sensors, rng)

@@ -63,9 +63,11 @@ def _record(d, frame_idx, ts_start, rng, cl, truth, truth_id):
     }
 
 
-def generate(devs: list[DeviceCfg], hours: float, seed: int = 1) -> SynthResult:
+def generate(devs: list[DeviceCfg], hours: float, seed: int = 1, margin_mm: float = 30.0) -> SynthResult:
     rng = np.random.default_rng(seed)
-    top = devs[0].sensor
+    # sample muons on an enlarged plane at the top sensor height so every sensor gets its own full flux
+    # (lower sensors also see muons that miss the top sensor). Margin covers zenith angles up to ~58 deg.
+    top = mc.Sensor(devs[0].sensor.w_mm + 2 * margin_mm, devs[0].sensor.h_mm + 2 * margin_mm, devs[0].sensor.z_mm)
     T_ns = int(hours * 3600e9)
     rate_per_ns = mc.FLUX_PER_CM2_MIN * (top.w_mm * top.h_mm / 100.0) / 60e9
     n_mu = rng.poisson(rate_per_ns * T_ns)
@@ -74,7 +76,7 @@ def generate(devs: list[DeviceCfg], hours: float, seed: int = 1) -> SynthResult:
     out = SynthResult(n_muons=int(n_mu), muon_theta=theta)
     for d in devs:
         s = d.sensor
-        dz = top.z_mm - s.z_mm
+        dz = devs[0].sensor.z_mm - s.z_mm
         xs = x + dz * np.tan(theta) * np.cos(phi)
         ys = y + dz * np.tan(theta) * np.sin(phi)
         # the sensor's physical window is shifted by its true misalignment
@@ -112,6 +114,11 @@ def generate(devs: list[DeviceCfg], hours: float, seed: int = 1) -> SynthResult:
                           width_px=wid, angle_rad=float(rng.uniform(0, np.pi)), eccentricity=ecc)
                 out.records.append(_record(d, fi, fi * d.frame_ns + d.phase_ns, rng, cl, kind, -1))
     out.records.sort(key=lambda r: r["utc_ns"])
+    seen: dict[tuple, int] = {}
+    for r in out.records:                      # cluster index within (device, frame) -> unique ingest key
+        key = (r["device_id"], r["frame_idx"])
+        r["cluster_idx"] = seen.get(key, 0)
+        seen[key] = r["cluster_idx"] + 1
     return out
 
 

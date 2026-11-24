@@ -25,6 +25,11 @@ def rms_residual(top, mid, bot, hits) -> float:
     return float(np.sqrt(np.mean(np.sum(r**2, axis=1))))
 
 
+def median_residual(top, mid, bot, hits) -> float:
+    """Robust (outlier-insensitive) miss distance [mm]."""
+    return float(np.median(np.linalg.norm(_residual_vectors(top, mid, bot, hits), axis=1)))
+
+
 def align_middle(top: SensorPose, mid: SensorPose, bot: SensorPose, hits: np.ndarray, loss: str = "soft_l1",
                  f_scale: float = 0.1) -> tuple[SensorPose, dict]:
     """Returns (aligned middle pose, info with rms before/after and parameters)."""
@@ -43,4 +48,5 @@ def align_middle(top: SensorPose, mid: SensorPose, bot: SensorPose, hits: np.nda
     except np.linalg.LinAlgError:
         err = np.full(3, np.nan)
     return new, dict(rms_before=rms_residual(top, mid, bot, hits), rms_after=rms_residual(top, new, bot, hits),
+                     median_before=median_residual(top, mid, bot, hits), median_after=median_residual(top, new, bot, hits),
                      dx_mm=sol.x[0], dy_mm=sol.x[1], drot_rad=sol.x[2], errors=err, n_tracks=len(hits))
