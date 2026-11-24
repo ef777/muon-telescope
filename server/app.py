@@ -54,6 +54,7 @@ def _triples(run_id: str | None, order=("top", "middle", "bottom")):
 def coincidences(run_id: str | None = None, pitch_um: float = 1.0, z_gap_mm: float = 9.0):
     """Triples with straight-line reconstruction in the stack frame (nominal geometry, no alignment)."""
     ev, (a, b, c), tri = _triples(run_id)
+    tri = classify.track_triples(tri, a, b, c)     # drop real doubles + noise cluster in 3rd sensor
     out = []
     for i, j, k in tri[-100:]:
         poses = {n: tracks.SensorPose(-z_gap_mm * s, 0, 0, 0, pitch_um, 2 * a.cols["x_px"].max(), 2 * a.cols["y_px"].max())

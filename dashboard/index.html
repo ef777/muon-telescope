@@ -23,7 +23,7 @@ document.getElementById("sum").textContent = `${st.n_events} olay, ${co.length} 
 const names = Object.keys(st.devices);
 Plotly.newPlot("rates", [{x: names, y: names.map(n => st.devices[n].rate_per_h), type: "bar", name: "olay/saat"},
   {x: names, y: names.map(n => st.devices[n].n_track / Math.max(st.devices[n].n, 1)), type: "bar", name: "iz oranı", yaxis: "y2"}],
-  {title: "Cihaz başına olay oranı", template: "plotly_dark", paper_bgcolor: "#1b1b1b", plot_bgcolor: "#1b1b1b",
+  {title: "Cihaz başına olay oranı (mavi: olay/saat, turuncu: iz oranı)", barmode: "group", template: "plotly_dark", paper_bgcolor: "#1b1b1b", plot_bgcolor: "#1b1b1b",
    font: {color: "#ddd"}, yaxis2: {overlaying: "y", side: "right"}});
 const L = st.lag_scan_top_middle;
 if (L) Plotly.newPlot("lag", [{x: L.lags_s, y: L.counts, mode: "lines+markers"}],
